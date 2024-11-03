@@ -45,8 +45,10 @@ export default function App() {
           }}
         >
           {renderContent()}
+          {/* {renderContent()} */}
         </Content>
       </Layout>
     </Layout>
   );
 }
+
