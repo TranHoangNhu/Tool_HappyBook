@@ -18,7 +18,7 @@ export default function App() {
   const renderContent = () => {
     switch (selectedNav) {
       case '1':
-        return <h1>Welcome to Nav 1</h1>;
+        return <h1>CHÀO MỪNG BẠN ĐẾN VỚI HỆ THỐNG TOOL CỦA HAPPYBOOK TRAVEL</h1>;
       case '2-1':
         return <Dexuattukhoa />;
       case '2-2':

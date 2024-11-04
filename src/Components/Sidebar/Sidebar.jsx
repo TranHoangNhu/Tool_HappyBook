@@ -2,9 +2,9 @@
 import React from "react";
 import { Layout, Menu } from "antd";
 import {
-  UserOutlined,
+  // UserOutlined,
   VideoCameraOutlined,
-  UploadOutlined,
+  // UploadOutlined,
   FolderOutlined,
   CalculatorOutlined,
 } from "@ant-design/icons";
@@ -21,11 +21,11 @@ export default function Sidebar({ collapsed, setCollapsed, setSelectedNav }) {
         defaultSelectedKeys={["1"]}
         onClick={({ key }) => setSelectedNav(key)}
         items={[
-          {
-            key: "1",
-            icon: <UserOutlined />,
-            label: "nav 1",
-          },
+          // {
+          //   key: "1",
+          //   icon: <UserOutlined />,
+          //   label: "nav 1",
+          // },
           {
             key: "2",
             icon: <VideoCameraOutlined />,
@@ -43,11 +43,11 @@ export default function Sidebar({ collapsed, setCollapsed, setSelectedNav }) {
               },
             ],
           },
-          {
-            key: "3",
-            icon: <UploadOutlined />,
-            label: "nav 3",
-          },
+          // {
+          //   key: "3",
+          //   icon: <UploadOutlined />,
+          //   label: "nav 3",
+          // },
           {
             key: "4",
             icon: <FolderOutlined />,

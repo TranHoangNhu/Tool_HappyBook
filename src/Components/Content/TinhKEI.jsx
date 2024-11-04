@@ -1,19 +1,27 @@
 // TinhKEI.jsx
 import React, { useState } from "react";
-import { Button, Table, Upload, Dropdown, Menu } from "antd";
+import { Button, Table, Upload, Dropdown } from "antd";
 import {
   UploadOutlined,
-  DownOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
 } from "@ant-design/icons";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import "antd/dist/reset.css";
 
 export default function TinhKEI() {
   const [data, setData] = useState([]);
   const [sortAscending, setSortAscending] = useState(true);
-  const [isExportVisible, setIsExportVisible] = useState(false);
+
+  const removeVietnameseTones = (str) => {
+    return str
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D");
+  };
 
   const handleFileUpload = (file) => {
     const reader = new FileReader();
@@ -31,11 +39,11 @@ export default function TinhKEI() {
         kei: row[2] ? ((row[1] * row[1]) / row[2]).toFixed(2) : 0,
         rating: row[2]
           ? (row[1] * row[1]) / row[2] > 100
-            ? "Cao"
+            ? "High"
             : (row[1] * row[1]) / row[2] > 10
-            ? "Trung bình"
-            : "Thấp"
-          : "Thấp",
+            ? "Medium"
+            : "Low"
+          : "Low",
       }));
       setData(tableData);
     };
@@ -51,19 +59,6 @@ export default function TinhKEI() {
     setSortAscending(!sortAscending);
   };
 
-  const exportToCSV = () => {
-    const csvContent = data
-      .map((row) => {
-        return `${row.keyword},${row.kei},${row.rating}`;
-      })
-      .join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "export.csv";
-    link.click();
-  };
-
   const exportToXLSX = () => {
     const workbook = XLSX.utils.book_new();
     const worksheetData = [
@@ -75,11 +70,36 @@ export default function TinhKEI() {
     XLSX.writeFile(workbook, "export.xlsx");
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+
+    const tableColumn = ["Keyword", "KEI", "Keyword Rating"];
+    const tableRows = data.map((row) => [
+      removeVietnameseTones(row.keyword),
+      row.kei,
+      removeVietnameseTones(row.rating),
+    ]);
+
+    doc.text("KEI Data", 10, 10);
+    doc.autoTable({ head: [tableColumn], body: tableRows, startY: 20 });
+    doc.save("export.pdf");
+  };
+
   const columns = [
     {
       title: "Keyword",
       dataIndex: "keyword",
       key: "keyword",
+    },
+    {
+      title: "Volume",
+      dataIndex: "searchVolume",
+      key: "searchVolume",
+    },
+    {
+      title: "Number of Results",
+      dataIndex: "numOfResults",
+      key: "numOfResults",
     },
     {
       title: (
@@ -97,16 +117,16 @@ export default function TinhKEI() {
     },
   ];
 
-  const menu = (
-    <Menu>
-      <Menu.Item key="1" onClick={exportToCSV}>
-        Xuất CSV
-      </Menu.Item>
-      <Menu.Item key="2" onClick={exportToXLSX}>
-        Xuất XLSX
-      </Menu.Item>
-    </Menu>
-  );
+  const items = [
+    {
+      key: "1",
+      label: <div onClick={exportToXLSX}>Xuất File Excel</div>,
+    },
+    {
+      key: "2",
+      label: <div onClick={exportToPDF}>Xuất File PDF</div>,
+    },
+  ];
 
   return (
     <div className="container">
@@ -114,14 +134,8 @@ export default function TinhKEI() {
       <Upload beforeUpload={handleFileUpload} showUploadList={false}>
         <Button icon={<UploadOutlined />}>Tải lên file</Button>
       </Upload>
-      <Dropdown
-        overlay={menu}
-        open={isExportVisible}
-        onOpenChange={setIsExportVisible}
-      >
-        <Button className="mt-3">
-          Xuất File <DownOutlined />
-        </Button>
+      <Dropdown menu={{ items }} placement="bottomRight" arrow>
+        <Button className="mt-3">Xuất File</Button>
       </Dropdown>
       <Table
         className="mt-3"
