@@ -1,5 +1,5 @@
 // Dexuattukhoa.jsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css"; // Import style của QuillJS
 import { Button, Input } from "antd"; // Sử dụng nút của Ant Design
@@ -12,7 +12,23 @@ export default function Dexuattukhoa() {
   const [keywordCount, setKeywordCount] = useState(0);
   const [keywordDensity, setKeywordDensity] = useState(0);
   const [suggestedKeywordCount, setSuggestedKeywordCount] = useState("");
+  const [totalCharacters, setTotalCharacters] = useState(0);
+  const [totalWords, setTotalWords] = useState(0);
   const quillRef = useRef(null);
+
+  const updateWordAndCharacterCount = useCallback(() => {
+    const cleanContent = content.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+    const totalCharacters = cleanContent.length;
+    const words = cleanContent.split(" ");
+    const totalWords = words.filter((word) => word.length > 0).length;
+
+    setTotalCharacters(totalCharacters);
+    setTotalWords(totalWords);
+  }, [content]);
+
+  useEffect(() => {
+    updateWordAndCharacterCount();
+  }, [content, updateWordAndCharacterCount]);
 
   // Thay đổi trạng thái editor
   const handleToggleCodeView = () => {
@@ -94,12 +110,12 @@ export default function Dexuattukhoa() {
 
   return (
     <div className="container">
-      <h1 style={{ marginBottom: "16px" }}>ĐỀ XUẤT VÀ TÍNH MẬT ĐỘ TỪ KHÓA</h1>
+      <h1 style={{ marginBottom: '16px' }}>ĐỀ XUẤT VÀ TÍNH MẬT ĐỘ TỪ KHÓA</h1>
       <Input
         placeholder="Nhập từ khóa"
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
-        style={{ marginBottom: "16px" }}
+        style={{ marginBottom: '16px' }}
       />
       {!isCodeView ? (
         <ReactQuill
@@ -129,24 +145,22 @@ export default function Dexuattukhoa() {
           style={{ width: "100%", height: 500, padding: "10px" }}
         />
       )}
-      <div style={{ marginTop: "50px" }}>
+      <div style={{ marginTop: '16px' }}>
         <Button
           type="primary"
           onClick={handleToggleCodeView}
           icon={isCodeView ? <EditOutlined /> : <CodeOutlined />}
-          style={{ marginRight: "15px" }}
+          style={{ marginRight: '8px' }}
         >
           {isCodeView ? "Visual Editor" : "Show Code"}
         </Button>
-        <Button
-          type="primary"
-          onClick={calculateDensity}
-          style={{ marginRight: "15px" }}
-        >
+        <Button type="primary" onClick={calculateDensity} style={{ marginRight: '8px' }}>
           Tính Mật Độ Từ Khóa
         </Button>
       </div>
-      <div style={{ marginTop: "50px" }}>
+      <div style={{ marginTop: '16px' }}>
+        <p><strong>Tổng số ký tự:</strong> {totalCharacters}</p>
+        <p><strong>Tổng số từ:</strong> {totalWords}</p>
         <p>Số lần xuất hiện từ khóa: {keywordCount}</p>
         <p>Mật độ từ khóa: {keywordDensity}%</p>
         <p>Đề xuất số lần xuất hiện từ khóa: {suggestedKeywordCount}</p>
