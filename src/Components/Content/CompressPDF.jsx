@@ -1,28 +1,47 @@
 import React, { useState, useEffect } from "react";
 import { UploadOutlined, DownloadOutlined } from "@ant-design/icons";
-import { Button, Upload, message, Progress } from "antd";
+import { Button, Upload, message, Progress, Slider } from "antd";
 import axios from "axios";
 
 export default function CompressPDF() {
   const [fileList, setFileList] = useState([]);
   const [compressedFiles, setCompressedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [totalPages, setTotalPages] = useState(0); // Số trang tổng cộng của PDF
+
+  // Các state để tùy chỉnh nén
+  const [colorImageDPI, setColorImageDPI] = useState(30);
+  const [grayImageDPI, setGrayImageDPI] = useState(150);
+  const [monoImageDPI, setMonoImageDPI] = useState(150);
+  const [jpegQuality, setJpegQuality] = useState(75);
 
   useEffect(() => {
-    // Thiết lập kết nối SSE để nhận tiến trình nén
-    const eventSource = new EventSource(
-      "http://localhost:4000/compress/progress"
-    );
+    let eventSource;
+    if (fileList.length > 0) {
+      // Thiết lập kết nối SSE để nhận tiến trình nén
+      eventSource = new EventSource(
+        "http://localhost:4000/compress/progress"
+      );
 
-    eventSource.onmessage = (event) => {
-      setUploadProgress(Number(event.data)); // Cập nhật tiến trình nén từ server
-    };
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const { completedPages, totalPages } = data;
+          setTotalPages(totalPages);
+          setUploadProgress(Math.round((completedPages / totalPages) * 100)); // Cập nhật tiến trình nén từ server
+        } catch (error) {
+          console.error("Error parsing progress data:", error);
+        }
+      };
+    }
 
     // Cleanup khi component unmount
     return () => {
-      eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+      }
     };
-  }, []);
+  }, [fileList]);
 
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
@@ -33,6 +52,10 @@ export default function CompressPDF() {
   const handleCompress = async (file) => {
     const formData = new FormData();
     formData.append("file", file.originFileObj);
+    formData.append("colorImageDPI", colorImageDPI);
+    formData.append("grayImageDPI", grayImageDPI);
+    formData.append("monoImageDPI", monoImageDPI);
+    formData.append("jpegQuality", jpegQuality);
 
     try {
       const response = await axios.post(
@@ -57,7 +80,8 @@ export default function CompressPDF() {
             url: fileUrl,
           },
         ]);
-        setUploadProgress(0);
+        setUploadProgress(100); // Đặt tiến trình thành 100% khi hoàn tất
+        setTotalPages(0);
       } else {
         message.error("Failed to compress PDF");
       }
@@ -65,6 +89,7 @@ export default function CompressPDF() {
       console.error("Error:", error);
       message.error("An error occurred during compression");
       setUploadProgress(0);
+      setTotalPages(0);
     }
   };
 
@@ -85,8 +110,46 @@ export default function CompressPDF() {
       <Upload {...props} fileList={fileList}>
         <Button icon={<UploadOutlined />}>Upload PDF</Button>
       </Upload>
+      <div style={{ marginTop: "20px" }}>
+        <h3>Color Image DPI: {colorImageDPI}</h3>
+        <Slider
+          min={10}
+          max={300}
+          value={colorImageDPI}
+          onChange={setColorImageDPI}
+          marks={{ 10: "10 DPI", 30: "30 DPI (default)", 150: "150 DPI", 300: "300 DPI" }}
+        />
+
+        <h3>Gray Image DPI: {grayImageDPI}</h3>
+        <Slider
+          min={72}
+          max={300}
+          value={grayImageDPI}
+          onChange={setGrayImageDPI}
+          marks={{ 72: "72 DPI", 150: "150 DPI", 300: "300 DPI" }}
+        />
+
+        <h3>Monochrome Image DPI: {monoImageDPI}</h3>
+        <Slider
+          min={72}
+          max={300}
+          value={monoImageDPI}
+          onChange={setMonoImageDPI}
+          marks={{ 72: "72 DPI", 150: "150 DPI", 300: "300 DPI" }}
+        />
+
+        <h3>JPEG Quality: {jpegQuality}</h3>
+        <Slider
+          min={0}
+          max={100}
+          value={jpegQuality}
+          onChange={setJpegQuality}
+          marks={{ 0: "0%", 50: "50%", 100: "100%" }}
+        />
+      </div>
+
       {fileList.map((file) => (
-        <div key={file.uid} style={{ marginTop: "10px" }}>
+        <div key={file.uid} style={{ marginTop: "20px" }}>
           <Button onClick={() => handleCompress(file)}>
             Compress {file.name}
           </Button>
@@ -94,11 +157,15 @@ export default function CompressPDF() {
             percent={uploadProgress}
             type="line"
             style={{ marginTop: "10px" }}
+            status={uploadProgress === 100 ? "success" : "active"} // Cập nhật trạng thái khi hoàn thành
           />
+          <p>
+            {totalPages > 0 ? `Processing ${uploadProgress}% of ${totalPages} pages` : null}
+          </p>
         </div>
       ))}
       {compressedFiles.map((file) => (
-        <div key={file.uid} style={{ marginTop: "10px" }}>
+        <div key={file.uid} style={{ marginTop: "20px" }}>
           <a href={file.url} download={file.name}>
             <Button icon={<DownloadOutlined />}>Download {file.name}</Button>
           </a>
