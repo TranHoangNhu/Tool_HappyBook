@@ -10,10 +10,10 @@ export default function CompressPDF() {
   const [totalPages, setTotalPages] = useState(0); // Số trang tổng cộng của PDF
 
   // Các state để tùy chỉnh nén
-  const [colorImageDPI, setColorImageDPI] = useState(30);
-  const [grayImageDPI, setGrayImageDPI] = useState(150);
-  const [monoImageDPI, setMonoImageDPI] = useState(150);
-  const [jpegQuality, setJpegQuality] = useState(75);
+  const [colorImageDPI, setColorImageDPI] = useState(72);
+  const [grayImageDPI, setGrayImageDPI] = useState(72);
+  const [monoImageDPI, setMonoImageDPI] = useState(72);
+  const [jpegQuality, setJpegQuality] = useState(80);
 
   useEffect(() => {
     let eventSource;
