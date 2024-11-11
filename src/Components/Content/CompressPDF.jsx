@@ -60,8 +60,8 @@ export default function CompressPDF() {
     setTotalPages(0);
     const formData = new FormData();
     formData.append("file", file.originFileObj);
-    formData.append("scale", scale);
-    formData.append("imageQuality", imageQuality);
+    formData.append("scale", scale); // Thêm giá trị scale từ slider
+    formData.append("imageQuality", imageQuality); // Thêm giá trị chất lượng từ slider
 
     try {
       const response = await axios.post(
