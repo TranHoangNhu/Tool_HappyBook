@@ -17,7 +17,9 @@ export default function CompressPDF() {
   useEffect(() => {
     let eventSource;
     if (isCompressing) {
-      eventSource = new EventSource("https://api.happybook.com.vn/progress.php");
+      eventSource = new EventSource(
+        "https://api.happybook.com.vn/progress.php"
+      );
 
       eventSource.onmessage = (event) => {
         try {
@@ -71,24 +73,45 @@ export default function CompressPDF() {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          responseType: "blob",
+          responseType: "blob", // Để nhận blob từ backend
         }
       );
 
       if (response.status === 200) {
-        const blob = new Blob([response.data], { type: "application/pdf" });
-        const fileUrl = URL.createObjectURL(blob);
-        setCompressedFiles([
-          {
-            uid: "-1",
-            name: `compressed_${file.name}`,
-            status: "done",
-            url: fileUrl,
-          },
-        ]);
-        setUploadProgress(100);
-        setTotalPages(0);
-        message.success("Compression completed successfully");
+        const originalBlob = response.data;
+
+        // Sử dụng jsPDF để nén PDF
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const pdfData = event.target.result;
+          const doc = new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4",
+          });
+
+          doc.addFileToVFS("compressed.pdf", pdfData);
+          doc.save(`compressed_${file.name}`);
+
+          const compressedBlob = new Blob([doc.output("blob")], {
+            type: "application/pdf",
+          });
+
+          const fileUrl = URL.createObjectURL(compressedBlob);
+          setCompressedFiles([
+            {
+              uid: "-1",
+              name: `compressed_${file.name}`,
+              status: "done",
+              url: fileUrl,
+            },
+          ]);
+          setUploadProgress(100);
+          setTotalPages(0);
+          message.success("Compression completed successfully");
+        };
+
+        reader.readAsDataURL(originalBlob);
       } else {
         message.error("Failed to compress PDF");
       }
