@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { UploadOutlined, DownloadOutlined } from "@ant-design/icons";
 import { Button, Upload, message, Progress, Slider } from "antd";
 import axios from "axios";
@@ -7,45 +7,11 @@ export default function CompressPDF() {
   const [fileList, setFileList] = useState([]);
   const [compressedFiles, setCompressedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [isCompressing, setIsCompressing] = useState(false);
 
   // State variables for adjusting scale and image quality
   const [scale, setScale] = useState(1000);
   const [imageQuality, setImageQuality] = useState(75);
-
-  useEffect(() => {
-    let eventSource;
-    if (isCompressing) {
-      eventSource = new EventSource(
-        "https://api.happybook.com.vn/progress.php"
-      );
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          const { completedPages, totalPages } = data;
-          setTotalPages(totalPages);
-          setUploadProgress(
-            totalPages > 0 ? Math.round((completedPages / totalPages) * 100) : 0
-          );
-        } catch (error) {
-          console.error("Error parsing progress data:", error);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error("EventSource failed:", error);
-        eventSource.close();
-      };
-    }
-
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-    };
-  }, [isCompressing]);
 
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
@@ -56,65 +22,43 @@ export default function CompressPDF() {
   const handleCompress = async (file) => {
     setIsCompressing(true);
     setUploadProgress(0);
-    setTotalPages(0);
     const formData = new FormData();
     formData.append("file", file.originFileObj);
     formData.append("scale", scale);
     formData.append("imageQuality", imageQuality);
 
     try {
-      // Bước 1: Upload File lên server
-      const uploadResponse = await axios.post(
-        "https://api.happybook.com.vn/upload.php",
+      const response = await axios.post(
+        "https://api.happybook.com.vn/compress.php",
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
           },
+          responseType: "blob",
         }
       );
 
-      if (uploadResponse.status === 200) {
-        // Bước 2: Sau khi upload thành công, gọi API để nén file
-        const compressResponse = await axios.post(
-          "https://api.happybook.com.vn/compress.php",
-          formData,
+      if (response.status === 200) {
+        const blob = new Blob([response.data], { type: "application/pdf" });
+        const fileUrl = URL.createObjectURL(blob);
+        setCompressedFiles([
           {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-            responseType: "blob",
-          }
-        );
-
-        if (compressResponse.status === 200) {
-          // Tạo link tải về cho file đã nén
-          const blob = new Blob([compressResponse.data], {
-            type: "application/pdf",
-          });
-          const fileUrl = URL.createObjectURL(blob);
-          setCompressedFiles([
-            {
-              uid: "-1",
-              name: `compressed_${file.name}`,
-              status: "done",
-              url: fileUrl,
-            },
-          ]);
-          setUploadProgress(100);
-          setTotalPages(0);
-          message.success("Compression completed successfully");
-        } else {
-          message.error("Failed to compress PDF");
-        }
+            uid: "-1",
+            name: `compressed_${file.name}`,
+            status: "done",
+            url: fileUrl,
+          },
+        ]);
+        setUploadProgress(100);
+        message.success("Compression completed successfully");
       } else {
-        message.error("Failed to upload PDF");
+        message.error("Failed to compress PDF");
       }
     } catch (error) {
       console.error("Error:", error);
       message.error("An error occurred during compression");
       setUploadProgress(0);
-      setTotalPages(0);
     } finally {
       setIsCompressing(false);
     }
@@ -181,11 +125,6 @@ export default function CompressPDF() {
                 : "normal"
             }
           />
-          {totalPages > 0 && (
-            <p>
-              Processing {uploadProgress}% of {totalPages} pages
-            </p>
-          )}
         </div>
       ))}
 
