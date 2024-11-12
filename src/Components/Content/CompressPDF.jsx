@@ -22,8 +22,8 @@ export default function CompressPDF() {
   const [isCompressing, setIsCompressing] = useState(false);
 
   // State variables for adjusting scale and image quality
-  const [scale, setScale] = useState(1000);
-  const [imageQuality, setImageQuality] = useState(75);
+  const [scale, setScale] = useState(90);
+  const [imageQuality, setImageQuality] = useState(100);
 
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
@@ -47,13 +47,11 @@ export default function CompressPDF() {
         let pdfDoc;
         for (let i = 1; i <= total; i++) {
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1 });
-          const canvas = document.createElement("canvas");
+                    const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
 
           // Adjust canvas size based on the longest dimension and keep aspect ratio
-          const longestSide = Math.max(viewport.width, viewport.height);
-          const adjustedScale = scale / longestSide;
+                    const adjustedScale = scale / 100;
           const adjustedViewport = page.getViewport({ scale: adjustedScale });
 
           canvas.height = adjustedViewport.height;
@@ -134,30 +132,26 @@ export default function CompressPDF() {
       </Upload>
 
       <div style={{ marginTop: "20px" }}>
-        <h3>Tỉ lệ kích thước: {scale}&nbsp;PX</h3>
+        <h3>Tỉ lệ thu nhỏ (1-100%): {scale}%</h3>
         <span>
           <input
             type="number"
             value={scale}
             onChange={(e) => setScale(Number(e.target.value))}
-            min={500}
-            max={3000}
+            min={1} max={100}
             style={{ marginLeft: "10px", padding: "5px", fontSize: "1.2rem" }}
           />
-          &nbsp;PX
+          &nbsp;%
         </span>
         <Slider
-          min={500}
-          max={3000}
-          value={scale}
-          onChange={setScale}
-          marks={{
-            500: "500",
-            1000: "1000 (default)",
-            1500: "1500",
-            2000: "2000",
-            2500: "2500",
-            3000: "3000",
+          min={1}
+          max={100}
+          value={scale} onChange={setScale} marks={{
+            1: "1%",
+            25: "25%",
+            50: "50%",
+            75: "75%",
+            100: "100%"
           }}
         />
 
@@ -167,18 +161,18 @@ export default function CompressPDF() {
             type="number"
             value={imageQuality}
             onChange={(e) => setImageQuality(Number(e.target.value))}
-            min={10}
-            max={100}
+            min={50}
+            max={300}
             style={{ marginLeft: "10px", padding: "5px", fontSize: "1.2rem" }}
           />
           &nbsp;DPI
         </span>
         <Slider
-          min={10}
-          max={100}
+          min={50}
+          max={300}
           value={imageQuality}
           onChange={setImageQuality}
-          marks={{ 10: "10%", 50: "50%", 75: "75% (default)", 100: "100%" }}
+          marks={{ 50: "10%", 100: "50%", 200: "75% (default)", 300: "100%" }}
         />
       </div>
 
