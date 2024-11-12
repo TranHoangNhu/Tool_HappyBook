@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { UploadOutlined, DownloadOutlined } from "@ant-design/icons";
 import { Button, Upload, message, Progress, Slider } from "antd";
-import axios from "axios";
+import jsPDF from "jspdf";
+import * as pdfjsLib from "pdfjs-dist/webpack";
+
+// Cấu hình worker cho pdf.js
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js";
 
 export default function CompressPDF() {
+  const formatFileSize = (size) => {
+    if (size < 1024) return `${size} bytes`;
+    else if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
+    else return `${(size / (1024 * 1024)).toFixed(0)} MB`;
+  };
+
   const [fileList, setFileList] = useState([]);
   const [compressedFiles, setCompressedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -14,45 +25,9 @@ export default function CompressPDF() {
   const [scale, setScale] = useState(1000);
   const [imageQuality, setImageQuality] = useState(75);
 
-  useEffect(() => {
-    let eventSource;
-    if (isCompressing) {
-      eventSource = new EventSource(
-        "https://api.happybook.com.vn/progress.php"
-      );
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.totalPages) {
-            setTotalPages(data.totalPages);
-            setUploadProgress(
-              data.totalPages > 0
-                ? Math.round((data.completedPages / data.totalPages) * 100)
-                : 0
-            );
-          }
-        } catch (error) {
-          console.error("Error parsing progress data:", error);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error("EventSource failed:", error);
-        eventSource.close();
-      };
-    }
-
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-    };
-  }, [isCompressing]);
-
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
-    newFileList = newFileList.slice(-2);
+    newFileList = newFileList.slice(-1);
     setFileList(newFileList);
   };
 
@@ -60,76 +35,91 @@ export default function CompressPDF() {
     setIsCompressing(true);
     setUploadProgress(0);
     setTotalPages(0);
-    const formData = new FormData();
-    formData.append("file", file.originFileObj);
-    formData.append("scale", scale); // Thêm giá trị scale từ slider
-    formData.append("imageQuality", imageQuality); // Thêm giá trị chất lượng từ slider
 
-    try {
-      const response = await axios.post(
-        "https://api.happybook.com.vn/compress.php",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          responseType: "blob", // Để nhận blob từ backend
+    const reader = new FileReader();
+    reader.onload = async function (event) {
+      const typedarray = new Uint8Array(event.target.result);
+
+      pdfjsLib.getDocument(typedarray).promise.then(async function (pdf) {
+        const total = pdf.numPages;
+        setTotalPages(total);
+
+        let pdfDoc;
+        for (let i = 1; i <= total; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1 });
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+
+          // Adjust canvas size based on the longest dimension and keep aspect ratio
+          const longestSide = Math.max(viewport.width, viewport.height);
+          const adjustedScale = scale / longestSide;
+          const adjustedViewport = page.getViewport({ scale: adjustedScale });
+
+          canvas.height = adjustedViewport.height;
+          canvas.width = adjustedViewport.width;
+
+          await page.render({
+            canvasContext: context,
+            viewport: adjustedViewport,
+          }).promise;
+
+          const imgData = canvas.toDataURL("image/jpeg", imageQuality / 100);
+
+          const orientation =
+            adjustedViewport.width > adjustedViewport.height
+              ? "landscape"
+              : "portrait";
+          if (i === 1) {
+            pdfDoc = new jsPDF({
+              orientation: orientation,
+              unit: "mm",
+              format: [adjustedViewport.width, adjustedViewport.height],
+            });
+          } else {
+            pdfDoc.addPage(
+              [adjustedViewport.width, adjustedViewport.height],
+              orientation
+            );
+          }
+
+          pdfDoc.addImage(
+            imgData,
+            "JPEG",
+            0,
+            0,
+            adjustedViewport.width,
+            adjustedViewport.height
+          );
+          setUploadProgress(Math.round((i / total) * 100));
         }
-      );
 
-      if (response.status === 200) {
-        const originalBlob = response.data;
+        // Sau khi hoàn tất phân tích, nén và tải về PDF mới
+        const blob = pdfDoc.output("blob");
+        const fileUrl = URL.createObjectURL(blob);
+        setCompressedFiles([
+          {
+            uid: "-1",
+            name: `compressed_${file.name}`,
+            status: "done",
+            url: fileUrl,
+            size: blob.size,
+          },
+        ]);
+        setUploadProgress(100);
+        message.success("Nén thành công");
+      });
+    };
 
-        // Sử dụng jsPDF để nén PDF
-        const reader = new FileReader();
-        reader.onload = function (event) {
-          const pdfData = event.target.result;
-          const doc = new jsPDF({
-            orientation: "portrait",
-            unit: "mm",
-            format: "a4",
-          });
-
-          doc.addFileToVFS("compressed.pdf", pdfData);
-          doc.save(`compressed_${file.name}`);
-
-          const compressedBlob = new Blob([doc.output("blob")], {
-            type: "application/pdf",
-          });
-
-          const fileUrl = URL.createObjectURL(compressedBlob);
-          setCompressedFiles([
-            {
-              uid: "-1",
-              name: `compressed_${file.name}`,
-              status: "done",
-              url: fileUrl,
-            },
-          ]);
-          setUploadProgress(100);
-          setTotalPages(0);
-          message.success("Compression completed successfully");
-        };
-
-        reader.readAsDataURL(originalBlob);
-      } else {
-        message.error("Failed to compress PDF");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      message.error("An error occurred during compression");
-      setUploadProgress(0);
-      setTotalPages(0);
-    } finally {
-      setIsCompressing(false);
-    }
+    reader.readAsArrayBuffer(file.originFileObj);
+    setIsCompressing(false);
   };
 
   const props = {
     beforeUpload: (file) => {
       const isPDF = file.type === "application/pdf";
       if (!isPDF) {
-        message.error(`${file.name} is not a PDF file`);
+        message.error(`${file.name} không phải là tệp PDF`);
       }
       return isPDF || Upload.LIST_IGNORE;
     },
@@ -140,39 +130,62 @@ export default function CompressPDF() {
   return (
     <div>
       <Upload {...props} fileList={fileList}>
-        <Button icon={<UploadOutlined />}>Upload PDF</Button>
+        <Button icon={<UploadOutlined />}>Tải lên PDF</Button>
       </Upload>
 
       <div style={{ marginTop: "20px" }}>
-        <h3>Scale: {scale}</h3>
+        <h3>Tỉ lệ kích thước: {scale}&nbsp;PX</h3>
+        <span>
+          <input
+            type="number"
+            value={scale}
+            onChange={(e) => setScale(Number(e.target.value))}
+            min={500}
+            max={3000}
+            style={{ marginLeft: "10px", padding: "5px", fontSize: "1.2rem" }}
+          />
+          &nbsp;PX
+        </span>
         <Slider
-          min={10}
-          max={2000}
+          min={500}
+          max={3000}
           value={scale}
           onChange={setScale}
           marks={{
-            10: "10",
             500: "500",
             1000: "1000 (default)",
             1500: "1500",
             2000: "2000",
+            2500: "2500",
+            3000: "3000",
           }}
         />
 
-        <h3>Image Quality: {imageQuality}</h3>
+        <h3>Chất lượng hình ảnh: {imageQuality}&nbsp;DPI</h3>
+        <span>
+          <input
+            type="number"
+            value={imageQuality}
+            onChange={(e) => setImageQuality(Number(e.target.value))}
+            min={10}
+            max={100}
+            style={{ marginLeft: "10px", padding: "5px", fontSize: "1.2rem" }}
+          />
+          &nbsp;DPI
+        </span>
         <Slider
-          min={0}
+          min={10}
           max={100}
           value={imageQuality}
           onChange={setImageQuality}
-          marks={{ 0: "0%", 50: "50%", 75: "75% (default)", 100: "100%" }}
+          marks={{ 10: "10%", 50: "50%", 75: "75% (default)", 100: "100%" }}
         />
       </div>
 
       {fileList.map((file) => (
         <div key={file.uid} style={{ marginTop: "20px" }}>
           <Button onClick={() => handleCompress(file)} disabled={isCompressing}>
-            {isCompressing ? "Compressing..." : `Compress ${file.name}`}
+            {isCompressing ? "Đang nén..." : `Nén ${file.name}`}
           </Button>
           <Progress
             percent={uploadProgress}
@@ -197,8 +210,11 @@ export default function CompressPDF() {
       {compressedFiles.map((file) => (
         <div key={file.uid} style={{ marginTop: "20px" }}>
           <a href={file.url} download={file.name}>
-            <Button icon={<DownloadOutlined />}>Download {file.name}</Button>
+            <Button icon={<DownloadOutlined />}>Tải xuống {file.name}</Button>
           </a>
+          <div style={{ marginLeft: "10px", display: "inline-block" }}>
+            Kích thước sau khi nén: {formatFileSize(file.size)}
+          </div>
         </div>
       ))}
     </div>
