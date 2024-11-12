@@ -20,7 +20,7 @@ export default function App() {
     switch (selectedNav) {
       case "1":
         return (
-          <h1>CHÀO MỪNG BẠN ĐẾN VỚI HỆ THỐNG TOOL CỦA HAPPYBOOK TRAVEL</h1>
+          <h1>TIỆN ÍCH CHO NGÀNH OTA</h1>
         );
       case "1-1":
         return <CompressPDF />;

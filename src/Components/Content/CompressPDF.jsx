@@ -22,8 +22,8 @@ export default function CompressPDF() {
   const [isCompressing, setIsCompressing] = useState(false);
 
   // State variables for adjusting scale and image quality
-  const [scale, setScale] = useState(90);
-  const [imageQuality, setImageQuality] = useState(200);
+  const [scale, setScale] = useState(100);
+  const [imageQuality, setImageQuality] = useState(300);
 
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
