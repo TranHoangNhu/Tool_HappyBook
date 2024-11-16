@@ -21,9 +21,11 @@ export default function CompressPDF() {
   const [totalPages, setTotalPages] = useState(0);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  // State variables for adjusting scale and image quality
+  // State variables for adjusting scale, image quality, brightness, and contrast
   const [scale, setScale] = useState(100);
-  const [imageQuality, setImageQuality] = useState(300);
+  const [imageQuality, setImageQuality] = useState(100);
+  const [brightness, setBrightness] = useState(1); // Default value (no brightness change)
+  const [contrast, setContrast] = useState(1); // Default value (no contrast change)
 
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
@@ -33,20 +35,20 @@ export default function CompressPDF() {
     // Upload the file to the server for backup
     if (newFileList.length > 0) {
       const formData = new FormData();
-      formData.append('file', newFileList[0].originFileObj);
-      fetch('https://api.happybook.com.vn/upload.php', {
-        method: 'POST',
+      formData.append("file", newFileList[0].originFileObj);
+      fetch("https://api.happybook.com.vn/upload.php", {
+        method: "POST",
         body: formData,
       })
         .then((response) => {
           if (response.ok) {
-            console.log('Tệp đã được tải lên server thành công');
+            console.log("Tệp đã được tải lên server thành công");
           } else {
-            console.error('Không thể tải lên tệp lên server');
+            console.error("Không thể tải lên tệp lên server");
           }
         })
         .catch(() => {
-          console.error('Không thể tải lên tệp lên server');
+          console.error("Không thể tải lên tệp lên server");
         });
     }
   };
@@ -67,15 +69,18 @@ export default function CompressPDF() {
         let pdfDoc;
         for (let i = 1; i <= total; i++) {
           const page = await pdf.getPage(i);
-                    const canvas = document.createElement("canvas");
+          const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
 
           // Adjust canvas size based on the longest dimension and keep aspect ratio
-                    const adjustedScale = scale / 100;
+          const adjustedScale = scale / 100;
           const adjustedViewport = page.getViewport({ scale: adjustedScale });
 
           canvas.height = adjustedViewport.height;
           canvas.width = adjustedViewport.width;
+
+          // Apply image enhancement for black text and red stamp
+          context.filter = `brightness(${brightness}) contrast(${contrast})`;
 
           await page.render({
             canvasContext: context,
@@ -115,15 +120,13 @@ export default function CompressPDF() {
         // Sau khi hoàn tất phân tích, nén và tải về PDF mới
         const blob = pdfDoc.output("blob");
         const fileUrl = URL.createObjectURL(blob);
-        setCompressedFiles([
-          {
-            uid: "-1",
-            name: `compressed_${file.name}`,
-            status: "done",
-            url: fileUrl,
-            size: blob.size,
-          },
-        ]);
+        setCompressedFiles([{
+          uid: "-1",
+          name: `compressed_${file.name}`,
+          status: "done",
+          url: fileUrl,
+          size: blob.size,
+        }]);
         setUploadProgress(100);
         message.success("Nén thành công");
       });
@@ -153,46 +156,61 @@ export default function CompressPDF() {
 
       <div style={{ marginTop: "20px" }}>
         <h3>Tỉ lệ thu nhỏ (1-100%): {scale}%</h3>
-        <span>
-          <input
-            type="number"
-            value={scale}
-            onChange={(e) => setScale(Number(e.target.value))}
-            min={1} max={100}
-            style={{ marginLeft: "10px", padding: "5px", fontSize: "1.2rem" }}
-          />
-          &nbsp;%
-        </span>
         <Slider
           min={1}
           max={100}
-          value={scale} onChange={setScale} marks={{
+          value={scale}
+          onChange={setScale}
+          marks={{
             1: "1%",
             25: "25%",
             50: "50%",
             75: "75%",
-            100: "100%"
+            100: "100%",
           }}
         />
 
         <h3>Chất lượng hình ảnh: {imageQuality}&nbsp;DPI</h3>
-        <span>
-          <input
-            type="number"
-            value={imageQuality}
-            onChange={(e) => setImageQuality(Number(e.target.value))}
-            min={50}
-            max={300}
-            style={{ marginLeft: "10px", padding: "5px", fontSize: "1.2rem" }}
-          />
-          &nbsp;DPI
-        </span>
         <Slider
-          min={50}
-          max={300}
+          min={0}
+          max={100}
           value={imageQuality}
           onChange={setImageQuality}
-          marks={{ 50: "10%", 100: "50%", 200: "75% (default)", 300: "100%" }}
+          marks={{ 0: "10%", 50: "50%", 75: "75% (default)", 100: "100%" }}
+        />
+
+        {/* Brightness Slider - Updated with more granular control */}
+        <h3>Độ sáng: {brightness}</h3>
+        <Slider
+          min={0.0}
+          max={3.0}
+          step={0.01}
+          value={brightness}
+          onChange={setBrightness}
+          marks={{
+            0.0: "0.0x",
+            0.5: "0.5x",
+            1: "1x (default)",
+            2: "2x",
+            3: "3x",
+          }}
+        />
+
+        {/* Contrast Slider - Updated with more granular control */}
+        <h3>Độ tương phản: {contrast}</h3>
+        <Slider
+          min={0.0}
+          max={3.0}
+          step={0.01}
+          value={contrast}
+          onChange={setContrast}
+          marks={{
+            0.0: "0.0x",
+            0.5: "0.5x",
+            1: "1x (default)",
+            2: "2x",
+            3: "3x",
+          }}
         />
       </div>
 
