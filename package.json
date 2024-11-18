@@ -16,6 +16,7 @@
     "jspdf-autotable": "^3.8.4",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^2.16.105",
+    "pica": "^9.0.1",
     "postcss-loader": "^4.3.0",
     "quill": "^2.0.2",
     "raw-loader": "^4.0.2",

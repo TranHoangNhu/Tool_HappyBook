@@ -3,6 +3,7 @@ import { UploadOutlined, DownloadOutlined } from "@ant-design/icons";
 import { Button, Upload, message, Progress, Slider } from "antd";
 import jsPDF from "jspdf";
 import * as pdfjsLib from "pdfjs-dist/webpack";
+import Pica from "pica";
 
 // Cấu hình worker cho pdf.js
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -21,11 +22,15 @@ export default function CompressPDF() {
   const [totalPages, setTotalPages] = useState(0);
   const [isCompressing, setIsCompressing] = useState(false);
 
-  // State variables for adjusting scale, image quality, brightness, and contrast
+  // State variables for adjusting scale, image quality, brightness, contrast, and sharpness
   const [scale, setScale] = useState(100);
   const [imageQuality, setImageQuality] = useState(100);
   const [brightness, setBrightness] = useState(1); // Default value (no brightness change)
   const [contrast, setContrast] = useState(1); // Default value (no contrast change)
+  const [sharpnessAmount, setSharpnessAmount] = useState(0); // Default value (no sharpness)
+
+  // Initialize Pica
+  const pica = Pica();
 
   const handleChange = (info) => {
     let newFileList = [...info.fileList];
@@ -79,7 +84,7 @@ export default function CompressPDF() {
           canvas.height = adjustedViewport.height;
           canvas.width = adjustedViewport.width;
 
-          // Apply image enhancement for black text and red stamp
+          // Apply image enhancement for brightness and contrast
           context.filter = `brightness(${brightness}) contrast(${contrast})`;
 
           await page.render({
@@ -87,7 +92,20 @@ export default function CompressPDF() {
             viewport: adjustedViewport,
           }).promise;
 
-          const imgData = canvas.toDataURL("image/jpeg", imageQuality / 100);
+          // Create a temporary canvas for Pica to process
+          const tmpCanvas = document.createElement("canvas");
+          tmpCanvas.width = canvas.width;
+          tmpCanvas.height = canvas.height;
+
+          // Use Pica to resize the image and apply unsharp mask
+          await pica.resize(canvas, tmpCanvas, {
+            unsharpAmount: sharpnessAmount * 500, // Adjust according to slider value (0-500)
+            unsharpRadius: 0.6,
+            unsharpThreshold: 2,
+          });
+
+          // Get the data URL from tmpCanvas instead of canvas
+          const imgData = tmpCanvas.toDataURL("image/jpeg", imageQuality / 100);
 
           const orientation =
             adjustedViewport.width > adjustedViewport.height
@@ -120,20 +138,22 @@ export default function CompressPDF() {
         // Sau khi hoàn tất phân tích, nén và tải về PDF mới
         const blob = pdfDoc.output("blob");
         const fileUrl = URL.createObjectURL(blob);
-        setCompressedFiles([{
-          uid: "-1",
-          name: `compressed_${file.name}`,
-          status: "done",
-          url: fileUrl,
-          size: blob.size,
-        }]);
+        setCompressedFiles([
+          {
+            uid: "-1",
+            name: `compressed_${file.name}`,
+            status: "done",
+            url: fileUrl,
+            size: blob.size,
+          },
+        ]);
         setUploadProgress(100);
         message.success("Nén thành công");
+        setIsCompressing(false);
       });
     };
 
     reader.readAsArrayBuffer(file.originFileObj);
-    setIsCompressing(false);
   };
 
   const props = {
@@ -170,16 +190,21 @@ export default function CompressPDF() {
           }}
         />
 
-        <h3>Chất lượng hình ảnh: {imageQuality}&nbsp;DPI</h3>
+        <h3>Chất lượng hình ảnh: {imageQuality}%</h3>
         <Slider
           min={0}
           max={100}
           value={imageQuality}
           onChange={setImageQuality}
-          marks={{ 0: "10%", 50: "50%", 75: "75% (default)", 100: "100%" }}
+          marks={{
+            0: "0%",
+            50: "50%",
+            75: "75% (mặc định)",
+            100: "100%",
+          }}
         />
 
-        {/* Brightness Slider - Updated with more granular control */}
+        {/* Brightness Slider */}
         <h3>Độ sáng: {brightness}</h3>
         <Slider
           min={0.0}
@@ -190,13 +215,13 @@ export default function CompressPDF() {
           marks={{
             0.0: "0.0x",
             0.5: "0.5x",
-            1: "1x (default)",
+            1: "1x (mặc định)",
             2: "2x",
             3: "3x",
           }}
         />
 
-        {/* Contrast Slider - Updated with more granular control */}
+        {/* Contrast Slider */}
         <h3>Độ tương phản: {contrast}</h3>
         <Slider
           min={0.0}
@@ -207,16 +232,34 @@ export default function CompressPDF() {
           marks={{
             0.0: "0.0x",
             0.5: "0.5x",
-            1: "1x (default)",
+            1: "1x (mặc định)",
             2: "2x",
             3: "3x",
+          }}
+        />
+
+        {/* Sharpness Slider */}
+        <h3>Độ nét: {sharpnessAmount}</h3>
+        <Slider
+          min={0}
+          max={1}
+          step={0.01}
+          value={sharpnessAmount}
+          onChange={setSharpnessAmount}
+          marks={{
+            0: "0",
+            0.5: "0.5",
+            1: "1",
           }}
         />
       </div>
 
       {fileList.map((file) => (
         <div key={file.uid} style={{ marginTop: "20px" }}>
-          <Button onClick={() => handleCompress(file)} disabled={isCompressing}>
+          <Button
+            onClick={() => handleCompress(file)}
+            disabled={isCompressing}
+          >
             {isCompressing ? "Đang nén..." : `Nén ${file.name}`}
           </Button>
           <Progress
@@ -233,7 +276,7 @@ export default function CompressPDF() {
           />
           {totalPages > 0 && (
             <p>
-              Processing {uploadProgress}% of {totalPages} pages
+              Đang xử lý {uploadProgress}% của {totalPages} trang
             </p>
           )}
         </div>
@@ -242,7 +285,9 @@ export default function CompressPDF() {
       {compressedFiles.map((file) => (
         <div key={file.uid} style={{ marginTop: "20px" }}>
           <a href={file.url} download={file.name}>
-            <Button icon={<DownloadOutlined />}>Tải xuống {file.name}</Button>
+            <Button icon={<DownloadOutlined />}>
+              Tải xuống {file.name}
+            </Button>
           </a>
           <div style={{ marginLeft: "10px", display: "inline-block" }}>
             Kích thước sau khi nén: {formatFileSize(file.size)}
