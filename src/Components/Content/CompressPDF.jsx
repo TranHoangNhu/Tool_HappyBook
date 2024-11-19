@@ -25,9 +25,9 @@ export default function CompressPDF() {
   // State variables for adjusting scale, image quality, brightness, contrast, and sharpness
   const [scale, setScale] = useState(100);
   const [imageQuality, setImageQuality] = useState(100);
-  const [brightness, setBrightness] = useState(1); // Default value (no brightness change)
-  const [contrast, setContrast] = useState(1); // Default value (no contrast change)
-  const [sharpnessAmount, setSharpnessAmount] = useState(0); // Default value (no sharpness)
+  const [brightness, setBrightness] = useState(0.85); // Default value (no brightness change)
+  const [contrast, setContrast] = useState(1.55); // Default value (no contrast change)
+  const [sharpnessAmount, setSharpnessAmount] = useState(1); // Default value (no sharpness)
 
   // Initialize Pica
   const pica = Pica();
@@ -215,7 +215,8 @@ export default function CompressPDF() {
           marks={{
             0.0: "0.0x",
             0.5: "0.5x",
-            1: "1x (mặc định)",
+            0.85: "0.85x (mặc định)",
+            1: "1x",
             2: "2x",
             3: "3x",
           }}
@@ -232,7 +233,8 @@ export default function CompressPDF() {
           marks={{
             0.0: "0.0x",
             0.5: "0.5x",
-            1: "1x (mặc định)",
+            1: "1x",
+            1.55: "1.55 (mặc định)",
             2: "2x",
             3: "3x",
           }}
